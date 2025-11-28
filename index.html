@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - Real-Time Task Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .notification-enter { animation: slideIn 0.3s ease-out; }
+        .notification-exit { animation: slideOut 0.3s ease-in; }
+        .task-card:hover { transform: translateY(-2px); }
+        .priority-high { border-left: 4px solid #ef4444; }
+        .priority-medium { border-left: 4px solid #f59e0b; }
+        .priority-low { border-left: 4px solid #22c55e; }
+        .overdue { background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); }
+        .pulse-animation { animation: pulse 2s infinite; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="fixed top-4 right-4 z-50 space-y-2 max-w-sm"></div>
+
+    <!-- Header -->
+    <header class="bg-white/10 backdrop-blur-lg border-b border-white/20 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-tasks text-white text-lg"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-white">TaskFlow</h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="requestNotificationPermission()" id="notifBtn" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition flex items-center gap-2">
+                        <i class="fas fa-bell"></i>
+                        <span class="hidden sm:inline">Enable Notifications</span>
+                    </button>
+                    <div class="text-white/70 text-sm" id="currentTime"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-list-check text-blue-400 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-white/60 text-sm">Total Tasks</p>
+                        <p class="text-white text-2xl font-bold" id="totalTasks">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-white/60 text-sm">Completed</p>
+                        <p class="text-white text-2xl font-bold" id="completedTasks">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-clock text-yellow-400 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-white/60 text-sm">Pending</p>
+                        <p class="text-white text-2xl font-bold" id="pendingTasks">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-exclamation-triangle text-red-400 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-white/60 text-sm">Overdue</p>
+                        <p class="text-white text-2xl font-bold" id="overdueTasks">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid lg:grid-cols-3 gap-8">
+            <!-- Add Task Form -->
+            <div class="lg:col-span-1">
+                <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 sticky top-24">
+                    <h2 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+                        <i class="fas fa-plus-circle text-purple-400"></i>
+                        Add New Task
+                    </h2>
+                    <form id="taskForm" class="space-y-4">
+                        <div>
+                            <label class="block text-white/70 text-sm mb-2">Task Title *</label>
+                            <input type="text" id="taskTitle" required placeholder="Enter task title..."
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-white/70 text-sm mb-2">Description</label>
+                            <textarea id="taskDesc" rows="3" placeholder="Task description..."
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-white/70 text-sm mb-2">Priority</label>
+                                <select id="taskPriority"
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    <option value="low" class="bg-slate-800">Low</option>
+                                    <option value="medium" class="bg-slate-800" selected>Medium</option>
+                                    <option value="high" class="bg-slate-800">High</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/70 text-sm mb-2">Category</label>
+                                <select id="taskCategory"
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    <option value="work" class="bg-slate-800">Work</option>
+                                    <option value="personal" class="bg-slate-800">Personal</option>
+                                    <option value="shopping" class="bg-slate-800">Shopping</option>
+                                    <option value="health" class="bg-slate-800">Health</option>
+                                    <option value="other" class="bg-slate-800">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-white/70 text-sm mb-2">Due Date & Time</label>
+                            <input type="datetime-local" id="taskDue"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-white/70 text-sm mb-2">Reminder (minutes before)</label>
+                            <select id="taskReminder"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                <option value="0" class="bg-slate-800">No reminder</option>
+                                <option value="5" class="bg-slate-800">5 minutes</option>
+                                <option value="15" class="bg-slate-800">15 minutes</option>
+                                <option value="30" class="bg-slate-800">30 minutes</option>
+                                <option value="60" class="bg-slate-800">1 hour</option>
+                            </select>
+                        </div>
+                        <button type="submit"
+                            class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-xl transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                            <i class="fas fa-plus"></i>
+                            Add Task
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Task List -->
+            <div class="lg:col-span-2">
+                <!-- Filters -->
+                <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20 mb-6">
+                    <div class="flex flex-wrap gap-3 items-center justify-between">
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="filterTasks('all')" class="filter-btn active px-4 py-2 rounded-lg text-sm font-medium transition" data-filter="all">
+                                All
+                            </button>
+                            <button onclick="filterTasks('pending')" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium transition" data-filter="pending">
+                                Pending
+                            </button>
+                            <button onclick="filterTasks('completed')" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium transition" data-filter="completed">
+                                Completed
+                            </button>
+                            <button onclick="filterTasks('overdue')" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium transition" data-filter="overdue">
+                                Overdue
+                            </button>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="searchInput" placeholder="Search tasks..." oninput="searchTasks()"
+                                class="pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/40"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tasks Container -->
+                <div id="tasksContainer" class="space-y-4">
+                    <!-- Tasks will be rendered here -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden text-center py-16">
+                    <div class="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-clipboard-list text-4xl text-white/40"></i>
+                    </div>
+                    <h3 class="text-white/60 text-xl mb-2">No tasks yet</h3>
+                    <p class="text-white/40">Add your first task to get started!</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-white/20">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-semibold text-white">Edit Task</h3>
+                <button onclick="closeEditModal()" class="text-white/60 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="editForm" class="space-y-4">
+                <input type="hidden" id="editTaskId">
+                <div>
+                    <label class="block text-white/70 text-sm mb-2">Task Title *</label>
+                    <input type="text" id="editTitle" required
+                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="block text-white/70 text-sm mb-2">Description</label>
+                    <textarea id="editDesc" rows="3"
+                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-white/70 text-sm mb-2">Priority</label>
+                        <select id="editPriority"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <option value="low" class="bg-slate-800">Low</option>
+                            <option value="medium" class="bg-slate-800">Medium</option>
+                            <option value="high" class="bg-slate-800">High</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-white/70 text-sm mb-2">Category</label>
+                        <select id="editCategory"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <option value="work" class="bg-slate-800">Work</option>
+                            <option value="personal" class="bg-slate-800">Personal</option>
+                            <option value="shopping" class="bg-slate-800">Shopping</option>
+                            <option value="health" class="bg-slate-800">Health</option>
+                            <option value="other" class="bg-slate-800">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-white/70 text-sm mb-2">Due Date & Time</label>
+                    <input type="datetime-local" id="editDue"
+                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeEditModal()"
+                        class="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="flex-1 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-xl transition">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Task storage
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let currentFilter = 'all';
+        let notifiedTasks = new Set(JSON.parse(localStorage.getItem('notifiedTasks')) || []);
+
+        // Category icons and colors
+        const categoryConfig = {
+            work: { icon: 'fa-briefcase', color: 'bg-blue-500' },
+            personal: { icon: 'fa-user', color: 'bg-purple-500' },
+            shopping: { icon: 'fa-shopping-cart', color: 'bg-green-500' },
+            health: { icon: 'fa-heart', color: 'bg-red-500' },
+            other: { icon: 'fa-folder', color: 'bg-gray-500' }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTasks();
+            updateStats();
+            updateTime();
+            setInterval(updateTime, 1000);
+            setInterval(checkReminders, 30000); // Check reminders every 30 seconds
+            checkReminders(); // Initial check
+            updateNotificationButton();
+        });
+
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Request notification permission
+        function requestNotificationPermission() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    updateNotificationButton();
+                    if (permission === 'granted') {
+                        showNotification('Notifications Enabled', 'You will now receive task reminders!', 'success');
+                    }
+                });
+            }
+        }
+
+        // Update notification button state
+        function updateNotificationButton() {
+            const btn = document.getElementById('notifBtn');
+            if ('Notification' in window && Notification.permission === 'granted') {
+                btn.innerHTML = '<i class="fas fa-bell text-green-400"></i><span class="hidden sm:inline">Notifications On</span>';
+                btn.classList.add('border', 'border-green-400/50');
+            }
+        }
+
+        // Show in-app notification
+        function showNotification(title, message, type = 'info') {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                warning: 'bg-yellow-500',
+                info: 'bg-blue-500'
+            };
+
+            notification.className = `notification-enter ${colors[type]} text-white p-4 rounded-xl shadow-lg flex items-start gap-3`;
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} text-xl mt-0.5"></i>
+                <div class="flex-1">
+                    <p class="font-semibold">${title}</p>
+                    <p class="text-sm opacity-90">${message}</p>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-white/80 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            container.appendChild(notification);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                notification.classList.remove('notification-enter');
+                notification.classList.add('notification-exit');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+
+            // Browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, { body: message, icon: '📋' });
+            }
+        }
+
+        // Check for reminders
+        function checkReminders() {
+            const now = new Date();
+            
+            tasks.forEach(task => {
+                if (task.completed || !task.dueDate || !task.reminder || task.reminder === '0') return;
+                
+                const dueDate = new Date(task.dueDate);
+                const reminderTime = new Date(dueDate.getTime() - task.reminder * 60000);
+                const taskKey = `${task.id}-${task.reminder}`;
+                
+                // Check if it's time for reminder and we haven't notified yet
+                if (now >= reminderTime && now < dueDate && !notifiedTasks.has(taskKey)) {
+                    showNotification(
+                        '⏰ Task Reminder',
+                        `"${task.title}" is due in ${task.reminder} minutes!`,
+                        'warning'
+                    );
+                    notifiedTasks.add(taskKey);
+                    localStorage.setItem('notifiedTasks', JSON.stringify([...notifiedTasks]));
+                }
+                
+                // Check for overdue tasks
+                const overdueKey = `${task.id}-overdue`;
+                if (now > dueDate && !notifiedTasks.has(overdueKey)) {
+                    showNotification(
+                        '🚨 Task Overdue',
+                        `"${task.title}" is now overdue!`,
+                        'error'
+                    );
+                    notifiedTasks.add(overdueKey);
+                    localStorage.setItem('notifiedTasks', JSON.stringify([...notifiedTasks]));
+                }
+            });
+        }
+
+        // Add task form handler
+        document.getElementById('taskForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const task = {
+                id: Date.now(),
+                title: document.getElementById('taskTitle').value,
+                description: document.getElementById('taskDesc').value,
+                priority: document.getElementById('taskPriority').value,
+                category: document.getElementById('taskCategory').value,
+                dueDate: document.getElementById('taskDue').value,
+                reminder: document.getElementById('taskReminder').value,
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+
+            tasks.unshift(task);
+            saveTasks();
+            renderTasks();
+            updateStats();
+            
+            showNotification('Task Added', `"${task.title}" has been added to your list.`, 'success');
+            
+            e.target.reset();
+        });
+
+        // Save tasks to localStorage
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        // Render tasks
+        function renderTasks() {
+            const container = document.getElementById('tasksContainer');
+            const emptyState = document.getElementById('emptyState');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            let filteredTasks = tasks.filter(task => {
+                const matchesSearch = task.title.toLowerCase().includes(searchTerm) || 
+                                     task.description.toLowerCase().includes(searchTerm);
+                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !task.completed;
+                
+                switch(currentFilter) {
+                    case 'pending': return !task.completed && matchesSearch;
+                    case 'completed': return task.completed && matchesSearch;
+                    case 'overdue': return isOverdue && matchesSearch;
+                    default: return matchesSearch;
+                }
+            });
+
+            if (filteredTasks.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            container.innerHTML = filteredTasks.map(task => createTaskCard(task)).join('');
+        }
+
+        // Create task card HTML
+        function createTaskCard(task) {
+            const category = categoryConfig[task.category] || categoryConfig.other;
+            const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !task.completed;
+            const dueText = task.dueDate ? formatDueDate(task.dueDate) : 'No due date';
+            
+            return `
+                <div class="task-card bg-white/10 backdrop-blur-lg rounded-2xl p-5 border border-white/20 transition-all duration-300 priority-${task.priority} ${isOverdue ? 'overdue' : ''} ${task.completed ? 'opacity-60' : ''}">
+                    <div class="flex items-start gap-4">
+                        <button onclick="toggleComplete(${task.id})" class="mt-1 w-6 h-6 rounded-full border-2 ${task.completed ? 'bg-green-500 border-green-500' : 'border-white/40 hover:border-purple-400'} flex items-center justify-center transition">
+                            ${task.completed ? '<i class="fas fa-check text-white text-xs"></i>' : ''}
+                        </button>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="w-6 h-6 ${category.color} rounded-lg flex items-center justify-center">
+                                    <i class="fas ${category.icon} text-white text-xs"></i>
+                                </span>
+                                <span class="text-white/50 text-xs uppercase tracking-wide">${task.category}</span>
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                                    task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-green-500/20 text-green-400'
+                                }">${task.priority}</span>
+                            </div>
+                            <h3 class="text-white font-semibold text-lg ${task.completed ? 'line-through' : ''}">${task.title}</h3>
+                            ${task.description ? `<p class="text-white/60 text-sm mt-1">${task.description}</p>` : ''}
+                            <div class="flex items-center gap-4 mt-3 text-sm">
+                                <span class="${isOverdue ? 'text-red-400' : 'text-white/50'} flex items-center gap-1">
+                                    <i class="fas fa-clock"></i>
+                                    ${dueText}
+                                </span>
+                                ${isOverdue ? '<span class="text-red-400 font-medium pulse-animation">OVERDUE</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="editTask(${task.id})" class="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition flex items-center justify-center">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteTask(${task.id})" class="w-9 h-9 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition flex items-center justify-center">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Format due date
+        function formatDueDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = date - now;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (days < 0) return `Overdue by ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''}`;
+            if (days === 0) return `Today at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+            if (days === 1) return `Tomorrow at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Toggle task completion
+        function toggleComplete(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+                renderTasks();
+                updateStats();
+                
+                if (task.completed) {
+                    showNotification('Task Completed', `"${task.title}" marked as complete!`, 'success');
+                }
+            }
+        }
+
+        // Delete task
+        function deleteTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (confirm(`Delete "${task.title}"?`)) {
+                tasks = tasks.filter(t => t.id !== id);
+                saveTasks();
+                renderTasks();
+                updateStats();
+                showNotification('Task Deleted', `"${task.title}" has been removed.`, 'info');
+            }
+        }
+
+        // Edit task
+        function editTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                document.getElementById('editTaskId').value = task.id;
+                document.getElementById('editTitle').value = task.title;
+                document.getElementById('editDesc').value = task.description;
+                document.getElementById('editPriority').value = task.priority;
+                document.getElementById('editCategory').value = task.category;
+                document.getElementById('editDue').value = task.dueDate;
+                document.getElementById('editModal').classList.remove('hidden');
+            }
+        }
+
+        // Close edit modal
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        // Edit form handler
+        document.getElementById('editForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const id = parseInt(document.getElementById('editTaskId').value);
+            const task = tasks.find(t => t.id === id);
+            
+            if (task) {
+                task.title = document.getElementById('editTitle').value;
+                task.description = document.getElementById('editDesc').value;
+                task.priority = document.getElementById('editPriority').value;
+                task.category = document.getElementById('editCategory').value;
+                task.dueDate = document.getElementById('editDue').value;
+                
+                saveTasks();
+                renderTasks();
+                updateStats();
+                closeEditModal();
+                showNotification('Task Updated', `"${task.title}" has been updated.`, 'success');
+            }
+        });
+
+        // Filter tasks
+        function filterTasks(filter) {
+            currentFilter = filter;
+            
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-purple-500', 'text-white');
+                btn.classList.add('bg-white/10', 'text-white/70');
+            });
+            
+            const activeBtn = document.querySelector(`[data-filter="${filter}"]`);
+            activeBtn.classList.add('active', 'bg-purple-500', 'text-white');
+            activeBtn.classList.remove('bg-white/10', 'text-white/70');
+            
+            renderTasks();
+        }
+
+        // Search tasks
+        function searchTasks() {
+            renderTasks();
+        }
+
+        // Update stats
+        function updateStats() {
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            const pending = tasks.filter(t => !t.completed).length;
+            const overdue = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && !t.completed).length;
+            
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('pendingTasks').textContent = pending;
+            document.getElementById('overdueTasks').textContent = overdue;
+        }
+
+        // Initialize filter buttons styling
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            if (btn.classList.contains('active')) {
+                btn.classList.add('bg-purple-500', 'text-white');
+            } else {
+                btn.classList.add('bg-white/10', 'text-white/70', 'hover:bg-white/20');
+            }
+        });
+    </script>
+</body>
+</html>
