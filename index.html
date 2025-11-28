@@ -29,7 +29,7 @@
         .pulse-animation { animation: pulse 2s infinite; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen flex flex-col">
     <!-- Notification Container -->
     <div id="notificationContainer" class="fixed top-4 right-4 z-50 space-y-2 max-w-sm"></div>
 
@@ -54,7 +54,7 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-8">
+    <main class="max-w-7xl mx-auto px-4 py-8 flex-1">
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20">
@@ -213,6 +213,25 @@
             </div>
         </div>
     </main>
+
+    <!-- Footer -->
+    <footer class="bg-white/10 backdrop-blur-lg border-t border-white/20 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-tasks text-white text-sm"></i>
+                    </div>
+                    <p class="text-white/70 text-sm">
+                        &copy; 2025 TaskFlow. All rights reserved.
+                    </p>
+                </div>
+                <div class="text-white/70 text-sm">
+                    Operated by <a href="https://www.linkedin.com/in/md-hadisur-rahman24" target="_blank" class="text-purple-400 hover:text-purple-300 transition underline">Hadisur Rahman</a>
+                </div>
+            </div>
+        </div>
+    </footer>
 
     <!-- Edit Modal -->
     <div id="editModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
